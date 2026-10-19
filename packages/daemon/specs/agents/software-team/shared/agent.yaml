@@ -1,0 +1,10 @@
+name: software-team-shared
+version: "1.0"
+description: Shared handoff and accountability contract for the project software team
+
+resources:
+  skills:
+    - id: software-team-contract
+      path: skills/software-team-contract
+
+profiles: {}

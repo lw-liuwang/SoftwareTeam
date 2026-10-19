@@ -1,0 +1,16 @@
+# Candidate standards. Approval must refer to an actual human decision record.
+status: candidate
+revision: 1
+human_decision: null
+contract: ../packages/daemon/specs/agents/software-team/shared/skills/software-team-contract/SKILL.md
+expert_sops:
+  coordinator: ../packages/daemon/specs/agents/software-team/coordinator/skills/software-team-coordinator/SKILL.md
+  requirements: ../packages/daemon/specs/agents/software-team/requirements/skills/software-team-requirements/SKILL.md
+  architecture: ../packages/daemon/specs/agents/software-team/architecture/skills/software-team-architecture/SKILL.md
+  development: ../packages/daemon/specs/agents/software-team/development/skills/software-team-development/SKILL.md
+  review: ../packages/daemon/specs/agents/software-team/review/skills/software-team-review/SKILL.md
+  testing: ../packages/daemon/specs/agents/software-team/testing/skills/software-team-testing/SKILL.md
+  operations: ../packages/daemon/specs/agents/software-team/operations/skills/software-team-operations/SKILL.md
+workflows:
+  pr: ../packages/daemon/src/builtins/workflow-specs/software-team-pr.yaml
+  product: ../packages/daemon/src/builtins/workflow-specs/software-team-product.yaml

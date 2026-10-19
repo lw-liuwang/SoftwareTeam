@@ -1,0 +1,14 @@
+# This document records a decision; an agent filling it does not grant approval.
+id: null
+task: null
+question: null
+options: []
+expert_positions: []
+evidence: []
+human_decision: null
+human_source: null
+decided_at: null
+scope: null
+conditions: []
+review_trigger: null
+affected_standard_revision: null

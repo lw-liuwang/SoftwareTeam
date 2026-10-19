@@ -1,0 +1,33 @@
+name: software-team-requirements
+version: "1.0"
+description: Resident requirements analyst and product acceptance owner
+
+defaults:
+  runtime: codex
+  lifecycle:
+    execution_mode: interactive_resident
+    restore_policy: resume_if_possible
+
+imports:
+  - ref: local:../shared
+
+profiles:
+  default:
+    uses:
+      skills: [software-team-requirements, software-team-shared:software-team-contract]
+      guidance: []
+      subagents: []
+      plugins: []
+      runtime_resources: []
+
+resources:
+  skills:
+    - id: software-team-requirements
+      path: skills/software-team-requirements
+
+startup:
+  files:
+    - path: skills/software-team-requirements/SKILL.md
+      delivery_hint: send_text
+      required: true
+  actions: []

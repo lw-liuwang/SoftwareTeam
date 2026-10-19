@@ -1,0 +1,16 @@
+# Copy into records/tasks/<task>/<stage>-<revision>.yaml; paths are repository-relative.
+project: software-team
+task: null
+expert: null
+requirement: null
+candidate: null
+inputs: []
+deliverables: []
+checks: []
+# Each check: {criterion, method, environment, result, evidence}.
+# result: pass | fail | blocked | not-run; evidence must point to actual observations.
+open_items: []
+human_decisions: []
+conclusion: null
+next_owner: team-coordinator@software-team
+# Add role-specific fields required by the expert's skill.

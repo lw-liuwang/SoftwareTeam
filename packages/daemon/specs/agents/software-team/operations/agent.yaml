@@ -1,0 +1,33 @@
+name: software-team-operations
+version: "1.0"
+description: Resident resources, deployment, live verification, and incident recovery owner
+
+defaults:
+  runtime: codex
+  lifecycle:
+    execution_mode: interactive_resident
+    restore_policy: resume_if_possible
+
+imports:
+  - ref: local:../shared
+
+profiles:
+  default:
+    uses:
+      skills: [software-team-operations, software-team-shared:software-team-contract]
+      guidance: []
+      subagents: []
+      plugins: []
+      runtime_resources: []
+
+resources:
+  skills:
+    - id: software-team-operations
+      path: skills/software-team-operations
+
+startup:
+  files:
+    - path: skills/software-team-operations/SKILL.md
+      delivery_hint: send_text
+      required: true
+  actions: []
